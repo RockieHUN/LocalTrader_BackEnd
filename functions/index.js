@@ -1,3 +1,5 @@
+
+const dataValidation = require("./dataValidation");
 const functions = require("firebase-functions");
 const admin = require ("firebase-admin");
 const serviceAccount = require('./ServiceAccountKey.json');
@@ -10,32 +12,47 @@ exports.register = functions.https.onRequest((request, response) => {
 
     // response.set('Access-Control-Allow-Origin', '*');
 
-    const uid = "123123";
-   admin
-   .auth()
-   .createUser({
-           uid: uid,
-           email: "kuki@gmail.com",
-           password: "Asd1999"
-    })
-    .then( (userRecord) => {
-        console.log("success");
+    const clientData = request.body;
 
+    if ( dataValidation.validateRegistration(clientData) != 0)
+    {
+        response.send("Invalid credentials!");
+    }
+    else
+    {
         admin
-            .auth()
-            .createCustomToken(uid)
-            .then((customToken) => {
-                response.send(customToken)
+        .auth()
+        .createUser({
+                uid: clientData["email"],
+                email: clientData["email"],
+                password: clientData["password"]
             })
-            .catch((error) => {
-                console.log('Error creating custom token:', error);
-                response.send("Error creating token");
-              });
-        // response.send(userRecord.uid);
-    })
-    .catch( (error) =>{
-        console.log("Error creating user", error);
-        response.send("Error creating user");
-    });
+            .then( (userRecord) => {
+                console.log("success");
+
+                admin
+                    .auth()
+                    .createCustomToken(clientData["email"])
+                    .then((customToken) => {
+                        response.send({"token": customToken});
+                    })
+                    .catch((error) => {
+                        console.log(error);
+                        response.send(error);
+                    });
+            })
+            .catch( (error) =>{
+                
+                console.log(error);
+                response.send(error);
+            });
+    }
+
+
+   
   
 });
+
+
+
+
