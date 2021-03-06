@@ -4,11 +4,68 @@ const functions = require("firebase-functions");
 const admin = require ("firebase-admin");
 const serviceAccount = require('./ServiceAccountKey.json');
 
+
+
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
   });
 
-exports.register = functions.https.onRequest((request, response) => {
+
+  exports.sendNotification = functions.firestore.document("orderRequests/{requestId}")
+        .onCreate((snapshot, context) => {
+      // Grab the current value of what was written to the Firestore
+       const orderRequest = snapshot.data();
+       
+       const businessId = orderRequest.businessId
+       const clientID = orderRequest.clientId
+       const clientFirstName = orderRequest.clientFirstName
+       const clientLastName = orderRequest.clientLastName
+
+       console.log(businessId," ", clientID)
+
+       //get clientToken
+       const clientToken = admin.firestore()
+       .collection("users")
+       .doc(clientID)
+       .get()
+       .then((snapshot) =>{
+           
+            //get business owners token
+            console.log("****CLIENT TOKEN*****" , snapshot.get("messagingToken"));
+            admin.firestore().collection("users").where("businessId", '==', businessId)
+            .get()
+            .then((snapshot2) =>{
+
+                if (snapshot2.empty) return;
+
+                //create payload
+                const payload = {
+                    notification: {
+                              title:   "Rendelése érkezett",
+                              body:    clientFirstName + " " + clientLastName + "rendelést adott fel"
+                 }
+                };
+
+                //create a list of target tokens
+                var list = [];
+                snapshot2.forEach(doc => {
+                    list.push(doc.get("messagingToken"));
+                    console.log("****OWNER TOKEN*****", doc.get("messagingToken"));
+                })
+
+                console.log("LIST" ,list);
+
+                //send message
+                admin.messaging().sendToDevice(list, payload)
+            })
+       }
+       );
+
+            
+        });
+      
+
+/*exports.register = functions.https.onRequest((request, response) => {
 
     // response.set('Access-Control-Allow-Origin', '*');
 
@@ -49,10 +106,29 @@ exports.register = functions.https.onRequest((request, response) => {
     }
 
 
-   
-  
-});
+}); */
+
+/*exports.popularBusinesses = functions.firestore
+    .document("businesses/{businessId}")
+    .onCreate( (snapshot, context) => {
+        
+        const db = admin.firestore();
+        const newBusiness = snapshot.data();
+        const businessId = snapshot.id;
+
+        const businesses = db.collection("promotedBusinesses")
+            .get()
+            .then( () => {
+                if (businesses.size < 2)
+                {
+                    const ref = db.collection("promotedBusinesses").doc(businessId);
+                    ref.set({"businessID": businessId});
+                }
+            });
+        
+        //console.log(newBusiness);
+       
 
 
-
+    });*/
 
