@@ -15,6 +15,9 @@ const Rectangle = require('./Rectangle');
             this.divided = false;
         }
 
+        getCapacity(){
+            return this.capacity;
+        }
 
         query(range, found){
             if (!found) {
