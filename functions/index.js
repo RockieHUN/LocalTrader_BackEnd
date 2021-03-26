@@ -48,13 +48,11 @@ admin.initializeApp({
              quadTree.createTree(businesses);
             
             
-            let serializer = new Serializer([QuadTree,Rectangle]);
-            
-
+            //save the three to the database
             admin.firestore()
             .collection('quadtree')
             .doc('quadtree')
-            .set({"tree": serializer.serialize(quadTree)})
+            .set({"tree": JSON.stringify(quadTree)})
             .catch(e =>{
                 console.log(e);
                 response.send("error");
@@ -73,25 +71,64 @@ admin.initializeApp({
 
   
 
-  exports.useQuadTree = functions.https.onRequest( (request, response)=>{
-      
-    admin.firestore().collection('quadtree')
-        .doc('quadtree')
-        .get()
-        .then(document => {
-            const quadtree = document.get("tree");
-            let serializer = new Serializer([QuadTree,Rectangle]);
+  exports.getLocalBusinesses = functions.https.onRequest( (request, response)=>{
 
-            let deserialized = serializer.deserialize(quadtree);
-            response.send(deserialized);
+    const longitude = request.body.longitude;
+    const latitude = request.body.latitude;
+    const rangeConst = 0.33;
+
+    //if the request is ok query the quadtree
+    if (longitude != undefined && latitude != undefined){
+
+        admin.firestore().collection('quadtree')
+            .doc('quadtree')
+            .get()
+            .then(document => {
+
+                //load and deserialize tree
+                const quadtreeJson = JSON.parse(document.get("tree"));
+                let serializer = new Serializer();
+
+                let quadTree = serializer.deserializeQuadtree(quadtreeJson, QuadTree.prototype, Rectangle.prototype, Business.prototype);
+
+                //console.log(quadTree);
+                //query the quadtree
+                let found = [];
+                const range = new Rectangle(longitude-rangeConst,latitude-rangeConst,rangeConst*2,rangeConst*2);
+                quadTree.query(range, found);
+
+                response.send(found);
+            })
+            .catch(e => {
+                console.log(e);
+                response.send("error");
+            });
+    }
+    //if the request isnt ok, return random businesses
+    else{
+        admin.firestore()
+        .collection("businesses")
+        .limit(6)
+        .get()
+        .then( documents => {
+            let list =[];
+            documents.forEach(document =>{
+                list.push(document.data());
+                //console.log(document.data());
+            })
+
+            response.send(list);
+
         })
-        .catch(e => {
+        .catch(e =>{
             console.log(e);
             response.send("error");
-        });
+        })
+        
+    }
 
-      
-  });
+    });
+    
 
 
   exports.sendNotification = functions.firestore.document("orderRequests/{requestId}")
