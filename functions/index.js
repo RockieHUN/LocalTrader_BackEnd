@@ -4,6 +4,7 @@ const QuadTree = require("./Models/Quadtree");
 const Rectangle = require("./Models/Rectangle");
 const Business = require("./Models/Business");
 const Serializer = require("./Models/Serializer");
+//const Converter = require("./Models/Converter")
 const functions = require("firebase-functions");
 const admin = require ("firebase-admin");
 const serviceAccount = require('./ServiceAccountKey.json');
@@ -30,13 +31,13 @@ admin.initializeApp({
 
             //get businesses
             snapshot.forEach(doc =>{
-                const name = doc.get("name");
+                const id = doc.get("businessId");
                 const latitude = doc.get("latitude");
                 const longitude = doc.get("longitude");
                 
                 //push businesses
                 businesses.push(
-                    new Business(name,longitude,latitude)
+                    new Business(id,longitude,latitude)
                 );
 
                 //respose.send(JSON.stringify(quadTree));
@@ -77,9 +78,12 @@ admin.initializeApp({
     const latitude = request.body.latitude;
     const rangeConst = 0.33;
 
+    //console.log("REQUEST: ", request.body)
+
     //if the request is ok query the quadtree
     if (longitude != undefined && latitude != undefined){
 
+        
         admin.firestore().collection('quadtree')
             .doc('quadtree')
             .get()
@@ -91,13 +95,39 @@ admin.initializeApp({
 
                 let quadTree = serializer.deserializeQuadtree(quadtreeJson, QuadTree.prototype, Rectangle.prototype, Business.prototype);
 
-                //console.log(quadTree);
                 //query the quadtree
                 let found = [];
                 const range = new Rectangle(longitude-rangeConst,latitude-rangeConst,rangeConst*2,rangeConst*2);
                 quadTree.query(range, found);
 
-                response.send(found);
+                //console.log("FOUND", found);
+
+                //collect ids
+                let ids =[];
+                for (let i =0; i< found.length; i++){
+                    ids.push(found[i].businessId)
+                }
+
+                //console.log("IDS", ids);
+
+                //get businesses from firestore
+                admin.firestore().collection("businesses")
+                .where('businessId','in',ids)
+                .get()
+                .then(businesses =>{
+                    let list = [];
+                    businesses.forEach( business =>{
+                        list.push(business.data())
+                    });
+
+                    //console.log("RESULT ", list);
+                    response.status(200)
+                    .type('application/json')
+                    .send(JSON.stringify(list));
+                });
+
+               
+                
             })
             .catch(e => {
                 console.log(e);
@@ -117,7 +147,10 @@ admin.initializeApp({
                 //console.log(document.data());
             })
 
-            response.send(list);
+            //console.log("RESULT:", list);
+            response.status(200)
+            .type('application/json')
+            .send(JSON.stringify(list));
 
         })
         .catch(e =>{
