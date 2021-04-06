@@ -8,6 +8,10 @@ firebase-debug.log*
 firebase-debug.*.log*
 ServiceAccountKey.json
 
+**/Secrets
+**/Seacrets.js
+**/runtimeconfig.json
+
 # Firebase cache
 .firebase/
 
