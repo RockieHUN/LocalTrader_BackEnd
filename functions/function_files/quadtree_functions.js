@@ -46,6 +46,8 @@ module.exports.loadAndDeserialize = async function loadAndDeserialize(){
             .doc('quadtree')
             .get()
 
+    if (!document.exists) return undefined;
+
     const quadtreeJson = JSON.parse(document.get("tree"));
     let serializer = new Serializer();
 

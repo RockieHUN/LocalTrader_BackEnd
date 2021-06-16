@@ -17,5 +17,6 @@ admin.initializeApp({
 
   exports.onBusinessCreated = require("./EndPoints/triggers/onBusinessCreated");
   exports.recommendations = require("./EndPoints/onRequests/recommendations");
+  exports.search = require("./EndPoints/onRequests/search");
        
 

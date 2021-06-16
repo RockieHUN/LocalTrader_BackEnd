@@ -12,13 +12,12 @@ const client = algoliasearch(ALGOLIA_APP_ID,ALGOLIA_ADMIN_KEY);
     
   
 
-    exports.search = functions.https.onRequest( ( request, response) =>{
+    exports.search = functions.https.onRequest( async( request, response) =>{
 
         const searchTerm = request.body.searchTerm;
 
         if (searchTerm == null || searchTerm == undefined){
-            response
-            .status(200)
+            response.status(200)
             .type('application/json')
             .send([]);
         }
@@ -26,30 +25,23 @@ const client = algoliasearch(ALGOLIA_APP_ID,ALGOLIA_ADMIN_KEY);
 
         const index = client.initIndex(ALGOLIA_BUSINESS_INDEX_NAME);
         
-        index.search(searchTerm,{
+        const responses = await index.search(searchTerm,{
             attributesToRetrieve: ['businessName','objectID'],
             hitsPerPage : 10
-        })
-            .then( function (responses){
-                const hits = responses.hits;
+        });
+            
+        const hits = responses.hits;
 
-                let list = [];
-                hits.forEach(hit => {
-                    list.push({
-                        "businessName" : hit.businessName,
-                        "businessId" :hit.objectID
-                    });
-                })
-
-                response
-                .status(200)
-                    .type('application/json')
-                    .send(JSON.stringify(list));
-            })
-            .catch(e =>{
-                response
-                .status(200)
-                .type('application/json')
-                .send([]);
+        let list = [];
+        hits.forEach(hit => {
+            list.push({
+                "businessName" : hit.businessName,
+                "businessId" :hit.objectID
             });
-    });
+        });
+
+        response
+        .status(200)
+            .type('application/json')
+            .send(JSON.stringify(list));     
+});

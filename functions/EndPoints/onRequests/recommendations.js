@@ -25,54 +25,93 @@ exports.getLocalBusinesses = functions.https.onRequest(async (request, response)
 const longitude = request.body.longitude;
 const latitude = request.body.latitude;
 const rangeConst = 0.33;
+const listMaxSize = 6;
 
+let list = [];
 
-//if the request is ok query the quadtree
+//------------ FIRST PHASE --------------
+
 if (longitude != undefined && latitude != undefined){
 
     quadtree == quadtree || await quadTreeFunctions.loadAndDeserialize();
 
-    //query the quadtree
-    let found = [];
-    const range = new Rectangle(longitude-rangeConst,latitude-rangeConst,rangeConst*2,rangeConst*2);
-    quadtree.query(range, found);
+    if (quadtree != undefined){
+        //query the quadtree
+        let found = [];
+        const range = new Rectangle(longitude-rangeConst,latitude-rangeConst,rangeConst*2,rangeConst*2);
+        quadtree.query(range, found);
 
-    //collect ids
-    let ids =[];
-    for (let i =0; i< found.length; i++){
-        ids.push(found[i].businessId)
+        //collect ids
+        let ids =[];
+        for (let i =0; i< found.length; i++){
+            ids.push(found[i].businessId)
+        }
+
+        //get businesses from firestore
+        const businessses = await admin.firestore().collection("businesses")
+            .where('businessId','in',ids)
+            .get();
+
+        businesses.forEach( business =>{
+            list.push(business.data())
+        });
     }
-
-    //get businesses from firestore
-    const businessses = await admin.firestore().collection("businesses")
-        .where('businessId','in',ids)
-        .get();
-
-    let list = [];
-    businesses.forEach( business =>{
-        list.push(business.data())
-    });
-
-                
-    response.status(200)
-        .type('application/json')
-        .send(JSON.stringify(list));
+    else{
+        await getRandomBusinesses(list, 12);
+    }                
 }
 //if the request isnt ok, return random businesses
 else{
+    await getRandomBusinesses(list, 12);
+}
+
+//------------ SECOND PHASE ----------------
+
+if (list.length > listMaxSize){
+    list = getRandomsFromList(list);
+}
+
+if (list.length < listMaxSize){
+   // await getRandomBusinesses(list, listMaxSize - list.length)
+}
+
+
+
+response.status(200)
+    .type('application/json')
+    .send(JSON.stringify(list));   
+});
+
+
+
+
+async function getRandomBusinesses(list, limit){
+
+    console.log("limit: ", limit);
     const randomBusinesses = await admin.firestore()
     .collection("businesses")
-    .limit(6)
+    .limit(limit)
     .get()
 
-    let list =[];
     randomBusinesses.forEach(document =>{
-        list.push(document.data());
+        if (!list.includes(document.data)){
+            list.push(document.data());
+        }  
     });
-    
-    response.status(200)
-        .type('application/json')
-        .send(JSON.stringify(list));   
 }
-});
+
+function getRandomsFromList(list){
+    let numberOfRandoms = 6;
+    let randomList = [];
+    
+
+    while( numberOfRandoms ){
+        let randomNumber = Math.floor(Math.random() * (list.length - 0) + 0);
+        randomList.push(list[randomNumber]);
+        list.splice(randomNumber, 1);
+        numberOfRandoms = numberOfRandoms - 1;
+    } 
+    return randomList;
+     
+}
 
